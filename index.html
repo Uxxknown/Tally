@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tally">
+<meta name="theme-color" content="#1C2541">
+<title>Tally — track the wait</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1C2541;
+    --ink-soft:#3B4664;
+    --paper:#EFEBE2;
+    --paper-dim:#E3DDCE;
+    --paper-card:#F6F3EA;
+    --brass:#A8823C;
+    --brass-dark:#8C6A2E;
+    --rust:#8C3B2E;
+    --sage:#5B6F55;
+    --line:#C9C1AE;
+    --serif:'Source Serif 4', Georgia, serif;
+    --mono:'IBM Plex Mono', 'Courier New', monospace;
+    --sans:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:640px;margin:0 auto;padding:28px 20px 80px;}
+
+  /* ---------- header ---------- */
+  .app-header{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:28px; padding-bottom:16px; border-bottom:2px solid var(--ink);
+  }
+  .app-header .wordmark{
+    font-family:var(--serif); font-weight:600; font-size:28px; letter-spacing:0.02em;
+  }
+  .app-header .wordmark span{color:var(--brass);}
+  .app-header .tagline{font-size:11px; color:var(--ink-soft); font-family:var(--mono); letter-spacing:0.04em; text-transform:uppercase;}
+
+  /* ---------- buttons ---------- */
+  button{font-family:var(--sans); cursor:pointer; border:none;}
+  .btn{
+    padding:11px 18px; border-radius:3px; font-size:14px; font-weight:600;
+    letter-spacing:0.01em; transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--ink); color:var(--paper-card);}
+  .btn-primary:hover{background:var(--ink-soft);}
+  .btn-brass{background:var(--brass); color:#fff;}
+  .btn-brass:hover{background:var(--brass-dark);}
+  .btn-ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .btn-rust{background:var(--rust); color:#fff;}
+  .btn-rust:hover{background:#752f24;}
+  .btn-text{background:none; padding:6px 0; font-size:13px; color:var(--ink-soft); font-weight:500;}
+  .btn-text:hover{color:var(--ink);}
+
+  /* ---------- journey list ---------- */
+  .list-toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;}
+  .list-toolbar h1{font-family:var(--serif); font-size:19px; font-weight:600; margin:0;}
+  .empty-state{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+    border:1.5px dashed var(--line); border-radius:6px; margin-top:20px;
+  }
+  .empty-state p{font-size:14px; line-height:1.6; max-width:320px; margin:0 auto 18px;}
+  .journey-card{
+    background:var(--paper-card); border:1px solid var(--line); border-left:4px solid var(--brass);
+    border-radius:4px; padding:16px 18px; margin-bottom:12px; cursor:pointer;
+    transition:box-shadow .15s ease, transform .15s ease;
+  }
+  .journey-card:hover{box-shadow:0 3px 10px rgba(28,37,65,0.08); transform:translateY(-1px);}
+  .journey-card.complete{border-left-color:var(--sage);}
+  .jc-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .jc-name{font-family:var(--serif); font-size:17px; font-weight:600;}
+  .jc-badge{
+    font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.06em;
+    padding:3px 8px; border-radius:20px; white-space:nowrap; margin-top:2px;
+  }
+  .jc-badge.active{background:rgba(168,130,60,0.15); color:var(--brass-dark);}
+  .jc-badge.complete{background:rgba(91,111,85,0.15); color:var(--sage);}
+  .jc-meta{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-top:8px;}
+  .jc-elapsed{font-family:var(--mono); font-size:13px; margin-top:6px; color:var(--ink);}
+
+  /* ---------- modal / form ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(28,37,65,0.45); display:flex;
+    align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  .modal{
+    background:var(--paper-card); border-radius:6px; padding:26px 24px; width:100%; max-width:420px;
+    border:1px solid var(--line);
+  }
+  .modal h2{font-family:var(--serif); font-size:20px; margin:0 0 18px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin-bottom:6px; font-family:var(--mono);}
+  .field input, .field textarea{
+    width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:3px;
+    font-family:var(--sans); font-size:14px; background:var(--paper); color:var(--ink);
+  }
+  .field input:focus, .field textarea:focus{outline:none; border-color:var(--brass);}
+  .field textarea{resize:vertical; min-height:64px;}
+  .modal-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:22px;}
+
+  /* ---------- detail view ---------- */
+  .back-row{display:flex; align-items:center; gap:10px; margin-bottom:20px;}
+  .detail-title{font-family:var(--serif); font-size:24px; font-weight:600; line-height:1.25;}
+  .detail-desc{color:var(--ink-soft); font-size:14px; margin-top:6px; line-height:1.5;}
+  .detail-dates{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-top:10px;}
+
+  .counter-block{
+    background:var(--ink); border-radius:8px; padding:26px 20px; margin:22px 0; text-align:center;
+    position:relative; overflow:hidden;
+  }
+  .counter-block.done{background:var(--sage);}
+  .counter-stamp{
+    position:absolute; top:12px; right:14px; font-family:var(--mono); font-size:10px;
+    letter-spacing:0.1em; color:rgba(255,255,255,0.55); text-transform:uppercase;
+  }
+  .digit-row{display:flex; justify-content:center; gap:10px; flex-wrap:wrap;}
+  .digit-group{display:flex; flex-direction:column; align-items:center;}
+  .digit-boxes{display:flex; gap:3px;}
+  .digit{
+    font-family:var(--mono); font-weight:600; font-size:30px; color:var(--paper);
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18);
+    border-radius:3px; padding:6px 4px; min-width:26px; text-align:center;
+  }
+  .digit-label{font-family:var(--mono); font-size:9px; color:rgba(239,235,226,0.55); text-transform:uppercase; letter-spacing:0.08em; margin-top:6px;}
+  .digit-sep{color:rgba(255,255,255,0.3); align-self:center; font-size:24px; padding-bottom:16px;}
+
+  .goal-row{display:flex; justify-content:center; margin-top:6px;}
+
+  /* ---------- notes ---------- */
+  .notes-section h3{font-family:var(--serif); font-size:16px; margin:26px 0 12px; border-bottom:1px solid var(--line); padding-bottom:8px;}
+  .note-form{display:flex; flex-direction:column; gap:10px; margin-bottom:22px;}
+  .note-form textarea{
+    width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:3px;
+    font-family:var(--sans); font-size:14px; min-height:60px; resize:vertical; background:var(--paper-card); color:var(--ink);
+  }
+  .note-form textarea:focus{outline:none; border-color:var(--brass);}
+  .note-form-actions{display:flex; justify-content:flex-end; align-items:center;}
+  .milestone-toggle{
+    display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft);
+    font-family:var(--sans); cursor:pointer; user-select:none;
+  }
+  .milestone-toggle input{width:15px; height:15px; accent-color:var(--brass); cursor:pointer;}
+
+  .timeline{border-left:2px solid var(--line); padding-left:18px; margin-left:6px;}
+  .note-item{position:relative; margin-bottom:20px;}
+  .note-item::before{
+    content:''; position:absolute; left:-23px; top:5px; width:9px; height:9px;
+    border-radius:50%; background:var(--brass); border:2px solid var(--paper);
+  }
+  .note-item.milestone::before{
+    background:var(--rust); width:12px; height:12px; left:-24px; top:3px;
+    box-shadow:0 0 0 3px rgba(140,59,46,0.15);
+  }
+  .note-item.milestone{
+    background:rgba(140,59,46,0.05); border:1px solid rgba(140,59,46,0.18);
+    border-radius:5px; padding:12px 14px; margin-left:-14px;
+  }
+  .milestone-tag{
+    font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--rust); font-weight:600; margin-bottom:4px;
+  }
+  .note-date{font-family:var(--mono); font-size:11px; color:var(--brass-dark); font-weight:600; letter-spacing:0.02em;}
+  .note-text{font-size:14px; line-height:1.55; margin-top:4px; color:var(--ink);}
+  .notes-empty{color:var(--ink-soft); font-size:13px; font-style:italic; padding:8px 0 8px 18px;}
+
+  .confirm-text{font-size:14px; line-height:1.55; color:var(--ink-soft); margin-bottom:0;}
+
+  @media (max-width:400px){
+    .digit{font-size:24px; padding:5px 3px; min-width:20px;}
+    .digit-sep{font-size:18px; padding-bottom:14px;}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  let journeys = [];
+  let notesCache = {};
+  let view = { screen: 'list', journeyId: null };
+  let tickInterval = null;
+  let storageReady = false;
+
+  // ---------- storage helpers (plain browser localStorage — no external dependency) ----------
+  async function loadJourneys(){
+    try{
+      const raw = localStorage.getItem('tally:journeys-list');
+      journeys = raw ? JSON.parse(raw) : [];
+    }catch(e){ journeys = []; }
+  }
+  async function saveJourneys(){
+    try{ localStorage.setItem('tally:journeys-list', JSON.stringify(journeys)); }
+    catch(e){ console.error('save journeys failed', e); alert('Could not save. Your browser storage may be full or disabled for this page.'); }
+  }
+  async function loadNotes(journeyId){
+    try{
+      const raw = localStorage.getItem('tally:notes:' + journeyId);
+      const notes = raw ? JSON.parse(raw) : [];
+      notesCache[journeyId] = notes;
+      return notes;
+    }catch(e){ notesCache[journeyId] = []; return []; }
+  }
+  async function saveNotes(journeyId, notes){
+    notesCache[journeyId] = notes;
+    try{ localStorage.setItem('tally:notes:' + journeyId, JSON.stringify(notes)); }
+    catch(e){ console.error('save notes failed', e); alert('Could not save. Your browser storage may be full or disabled for this page.'); }
+  }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  // ---------- time helpers ----------
+  function elapsedParts(startMs, endMs){
+    let diff = Math.max(0, endMs - startMs);
+    const days = Math.floor(diff / 86400000); diff -= days*86400000;
+    const hours = Math.floor(diff / 3600000); diff -= hours*3600000;
+    const mins = Math.floor(diff / 60000); diff -= mins*60000;
+    const secs = Math.floor(diff / 1000);
+    return {days, hours, mins, secs};
+  }
+  function pad(n){ return n.toString().padStart(2,'0'); }
+  function fmtElapsedShort(startMs, endMs){
+    const p = elapsedParts(startMs, endMs);
+    if(p.days > 0) return p.days + 'd ' + pad(p.hours) + 'h ' + pad(p.mins) + 'm';
+    if(p.hours > 0) return p.hours + 'h ' + pad(p.mins) + 'm';
+    return p.mins + 'm ' + pad(p.secs) + 's';
+  }
+  function fmtDate(ms){
+    const d = new Date(ms);
+    return d.toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+  }
+  function fmtDateTime(ms){
+    const d = new Date(ms);
+    return d.toLocaleDateString(undefined, {month:'short', day:'numeric'}) + ' · ' +
+           d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
+  }
+  function parseDateInput(val){
+    // val is 'YYYY-MM-DD' from <input type=date>, treat as local midnight
+    const [y,m,d] = val.split('-').map(Number);
+    return new Date(y, m-1, d, 0, 0, 0, 0).getTime();
+  }
+  function todayInputValue(){
+    const d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+  }
+
+  // ---------- rendering ----------
+  const app = document.getElementById('app');
+
+  function render(){
+    if(tickInterval){ clearInterval(tickInterval); tickInterval = null; }
+    if(view.screen === 'list') renderList();
+    else if(view.screen === 'newJourney') renderNewJourney();
+    else if(view.screen === 'detail') renderDetail();
+  }
+
+  function header(){
+    return '<div class="app-header">' +
+      '<div><div class="wordmark">Tally<span>.</span></div><div class="tagline">Track the wait for what matters</div></div>' +
+      '</div>';
+  }
+
+  function renderList(){
+    let html = header();
+    html += '<div class="list-toolbar"><h1>Your journeys</h1>' +
+      '<button class="btn btn-brass" id="btn-new">+ New journey</button></div>';
+
+    if(journeys.length === 0){
+      html += '<div class="empty-state"><p>No journeys yet. Start one the day you begin waiting for something big — a house, a car, whatever it is.</p>' +
+        '<button class="btn btn-primary" id="btn-new-empty">Start a journey</button></div>';
+    } else {
+      const sorted = [...journeys].sort((a,b) => {
+        if(a.status !== b.status) return a.status === 'active' ? -1 : 1;
+        return b.startDate - a.startDate;
+      });
+      sorted.forEach(j => {
+        const isDone = j.status === 'complete';
+        const elapsedEnd = isDone ? j.endDate : Date.now();
+        html += '<div class="journey-card ' + (isDone?'complete':'') + '" data-id="' + j.id + '">' +
+          '<div class="jc-top"><div class="jc-name">' + escapeHtml(j.name) + '</div>' +
+          '<div class="jc-badge ' + (isDone?'complete':'active') + '">' + (isDone?'Complete':'Active') + '</div></div>' +
+          '<div class="jc-meta">Started ' + fmtDate(j.startDate) + '</div>' +
+          '<div class="jc-elapsed">' + (isDone ? '✓ Took ' : '⏱ ') + fmtElapsedShort(j.startDate, elapsedEnd) + '</div>' +
+          '</div>';
+      });
+    }
+    app.innerHTML = html;
+
+    const btnNew = document.getElementById('btn-new');
+    if(btnNew) btnNew.onclick = () => { view = {screen:'newJourney'}; render(); };
+    const btnNewEmpty = document.getElementById('btn-new-empty');
+    if(btnNewEmpty) btnNewEmpty.onclick = () => { view = {screen:'newJourney'}; render(); };
+    document.querySelectorAll('.journey-card').forEach(el => {
+      el.onclick = () => { view = {screen:'detail', journeyId: el.dataset.id}; render(); };
+    });
+
+    if(journeys.some(j => j.status === 'active')){
+      tickInterval = setInterval(() => {
+        document.querySelectorAll('.journey-card:not(.complete) .jc-elapsed').forEach((el, i) => {
+          // recompute per active card in DOM order matches sorted active-first list
+        });
+        renderListTicks();
+      }, 1000);
+    }
+  }
+
+  function renderListTicks(){
+    const sorted = [...journeys].sort((a,b) => {
+      if(a.status !== b.status) return a.status === 'active' ? -1 : 1;
+      return b.startDate - a.startDate;
+    });
+    document.querySelectorAll('.journey-card').forEach(el => {
+      const j = sorted.find(x => x.id === el.dataset.id);
+      if(!j || j.status === 'complete') return;
+      const target = el.querySelector('.jc-elapsed');
+      if(target) target.textContent = '⏱ ' + fmtElapsedShort(j.startDate, Date.now());
+    });
+  }
+
+  function renderNewJourney(){
+    app.innerHTML = header() +
+      '<div class="overlay"><div class="modal">' +
+      '<h2>New journey</h2>' +
+      '<div class="field"><label>Name</label><input id="f-name" type="text" placeholder="e.g. Buying a house" /></div>' +
+      '<div class="field"><label>Start date</label><input id="f-date" type="date" value="' + todayInputValue() + '" /></div>' +
+      '<div class="field"><label>Goal (optional)</label><textarea id="f-desc" placeholder="What are you working toward?"></textarea></div>' +
+      '<div class="modal-actions">' +
+      '<button class="btn btn-ghost" id="f-cancel">Cancel</button>' +
+      '<button class="btn btn-brass" id="f-save">Start counting</button>' +
+      '</div></div></div>';
+
+    document.getElementById('f-cancel').onclick = () => { view = {screen:'list'}; render(); };
+    document.getElementById('f-save').onclick = async () => {
+      const name = document.getElementById('f-name').value.trim();
+      const dateVal = document.getElementById('f-date').value;
+      const desc = document.getElementById('f-desc').value.trim();
+      if(!name){ document.getElementById('f-name').style.borderColor = 'var(--rust)'; return; }
+      if(!dateVal){ document.getElementById('f-date').style.borderColor = 'var(--rust)'; return; }
+      const j = {
+        id: uid(),
+        name, description: desc,
+        startDate: parseDateInput(dateVal),
+        status: 'active',
+        endDate: null
+      };
+      journeys.push(j);
+      await saveJourneys();
+      view = {screen:'detail', journeyId: j.id};
+      render();
+    };
+    document.getElementById('f-name').focus();
+  }
+
+  function digitBoxes(num, minDigits){
+    const str = num.toString().padStart(minDigits, '0');
+    return str.split('').map(d => '<div class="digit">' + d + '</div>').join('');
+  }
+
+  async function renderDetail(){
+    const j = journeys.find(x => x.id === view.journeyId);
+    if(!j){ view = {screen:'list'}; render(); return; }
+    const isDone = j.status === 'complete';
+
+    if(!(j.id in notesCache)){
+      app.innerHTML = header() + '<div class="back-row"><button class="btn-text" id="b-back">← Back</button></div><p style="color:var(--ink-soft);font-size:14px;">Loading notes…</p>';
+      await loadNotes(j.id);
+    }
+    const notes = notesCache[j.id] || [];
+
+    const endMs = isDone ? j.endDate : Date.now();
+    const p = elapsedParts(j.startDate, endMs);
+
+    let html = header();
+    html += '<div class="back-row"><button class="btn-text" id="b-back">← Back to journeys</button></div>';
+    html += '<div class="detail-title">' + escapeHtml(j.name) + '</div>';
+    if(j.description) html += '<div class="detail-desc">' + escapeHtml(j.description) + '</div>';
+    html += '<div class="detail-dates">Started ' + fmtDate(j.startDate) +
+      (isDone ? ' · Achieved ' + fmtDate(j.endDate) : ' · still counting') + '</div>';
+
+    html += '<div class="counter-block ' + (isDone?'done':'') + '">' +
+      '<div class="counter-stamp">' + (isDone ? 'Final time' : 'Counting up') + '</div>' +
+      '<div class="digit-row">' +
+        '<div class="digit-group"><div class="digit-boxes">' + digitBoxes(p.days, 3) + '</div><div class="digit-label">Days</div></div>' +
+        '<div class="digit-sep">:</div>' +
+        '<div class="digit-group"><div class="digit-boxes">' + digitBoxes(p.hours, 2) + '</div><div class="digit-label">Hrs</div></div>' +
+        '<div class="digit-sep">:</div>' +
+        '<div class="digit-group"><div class="digit-boxes">' + digitBoxes(p.mins, 2) + '</div><div class="digit-label">Min</div></div>' +
+        '<div class="digit-sep">:</div>' +
+        '<div class="digit-group"><div class="digit-boxes">' + digitBoxes(p.secs, 2) + '</div><div class="digit-label">Sec</div></div>' +
+      '</div></div>';
+
+    if(!isDone){
+      html += '<div class="goal-row"><button class="btn btn-rust" id="b-achieve">I achieved the goal — stop the clock</button></div>';
+    }
+
+    html += '<div class="notes-section"><h3>Notes</h3>';
+    html += '<div class="note-form"><textarea id="note-input" placeholder="Jot down a thought, an update, a doubt…"></textarea>' +
+      '<label class="milestone-toggle"><input type="checkbox" id="note-milestone" /> Mark as milestone</label>' +
+      '<div class="note-form-actions"><button class="btn btn-primary" id="b-add-note">Add note</button></div></div>';
+
+    if(notes.length === 0){
+      html += '<div class="notes-empty">No notes yet. Add your first one above.</div>';
+    } else {
+      const sortedNotes = [...notes].sort((a,b) => b.createdAt - a.createdAt);
+      html += '<div class="timeline">';
+      sortedNotes.forEach(n => {
+        const isMilestone = !!n.milestone;
+        html += '<div class="note-item ' + (isMilestone ? 'milestone' : '') + '">' +
+          (isMilestone ? '<div class="milestone-tag">★ Milestone</div>' : '') +
+          '<div class="note-date">' + fmtDateTime(n.createdAt) + '</div>' +
+          '<div class="note-text">' + escapeHtml(n.text).replace(/\n/g,'<br>') + '</div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    app.innerHTML = html;
+
+    document.getElementById('b-back').onclick = () => { view = {screen:'list'}; render(); };
+
+    const achieveBtn = document.getElementById('b-achieve');
+    if(achieveBtn) achieveBtn.onclick = () => showAchieveConfirm(j);
+
+    document.getElementById('b-add-note').onclick = async () => {
+      const ta = document.getElementById('note-input');
+      const milestoneBox = document.getElementById('note-milestone');
+      const text = ta.value.trim();
+      if(!text) return;
+      const note = { id: uid(), text, createdAt: Date.now(), milestone: milestoneBox.checked };
+      const updated = [...(notesCache[j.id]||[]), note];
+      await saveNotes(j.id, updated);
+      render();
+    };
+
+    if(!isDone){
+      tickInterval = setInterval(() => {
+        const now = Date.now();
+        const parts = elapsedParts(j.startDate, now);
+        updateDigits(parts);
+      }, 1000);
+    }
+  }
+
+  function updateDigits(p){
+    const groups = document.querySelectorAll('.digit-group');
+    if(groups.length < 4) return;
+    setGroupDigits(groups[0], p.days, 3);
+    setGroupDigits(groups[1], p.hours, 2);
+    setGroupDigits(groups[2], p.mins, 2);
+    setGroupDigits(groups[3], p.secs, 2);
+  }
+  function setGroupDigits(group, num, minDigits){
+    const box = group.querySelector('.digit-boxes');
+    box.innerHTML = digitBoxes(num, minDigits);
+  }
+
+  function showAchieveConfirm(j){
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = '<div class="modal">' +
+      '<h2>Stop the clock?</h2>' +
+      '<p class="confirm-text">This locks in your final time for "' + escapeHtml(j.name) + '" permanently. You won\'t be able to resume it — you\'d start a fresh journey instead.</p>' +
+      '<div class="modal-actions">' +
+      '<button class="btn btn-ghost" id="c-cancel">Keep counting</button>' +
+      '<button class="btn btn-rust" id="c-confirm">Yes, achieved it</button>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+    document.getElementById('c-cancel').onclick = () => overlay.remove();
+    document.getElementById('c-confirm').onclick = async () => {
+      j.status = 'complete';
+      j.endDate = Date.now();
+      await saveJourneys();
+      overlay.remove();
+      render();
+    };
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ---------- init ----------
+  async function init(){
+    app.innerHTML = header() + '<p style="color:var(--ink-soft);font-size:14px;">Loading your journeys…</p>';
+    await loadJourneys();
+    render();
+  }
+  init();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((e) => console.error('SW registration failed', e));
+    });
+  }
+})();
+</script>
+</body>
+</html>
