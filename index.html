@@ -183,6 +183,40 @@
 
   .confirm-text{font-size:14px; line-height:1.55; color:var(--ink-soft); margin-bottom:0;}
 
+  /* ---------- recap modal ---------- */
+  .recap-modal{max-width:440px; max-height:85vh; overflow-y:auto;}
+  .recap-kicker{
+    font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em;
+    color:var(--brass-dark); font-weight:600; margin-bottom:6px;
+  }
+  .recap-title{font-family:var(--serif); font-size:22px; font-weight:600; margin:0 0 10px;}
+  .recap-duration{font-family:var(--mono); font-size:19px; font-weight:600; color:var(--sage);}
+  .recap-daterange{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-top:4px;}
+  .recap-stats{display:flex; gap:10px; margin:20px 0;}
+  .recap-stat{
+    flex:1; background:var(--paper); border:1px solid var(--line); border-radius:5px;
+    padding:14px 10px; text-align:center;
+  }
+  .recap-stat-num{font-family:var(--mono); font-size:24px; font-weight:600; color:var(--ink);}
+  .recap-stat-label{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-top:2px;}
+  .recap-section-label{
+    font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--ink-soft); margin:18px 0 8px; border-top:1px solid var(--line); padding-top:14px;
+  }
+  .recap-milestones{display:flex; flex-direction:column; gap:8px;}
+  .recap-milestone-item{
+    background:rgba(140,59,46,0.05); border:1px solid rgba(140,59,46,0.18);
+    border-radius:5px; padding:9px 12px;
+  }
+  .recap-milestone-date{font-family:var(--mono); font-size:10px; color:var(--rust); font-weight:600;}
+  .recap-milestone-text{font-size:13.5px; line-height:1.5; margin-top:2px;}
+  .recap-bookend{margin-bottom:10px;}
+  .recap-bookend-tag{
+    font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--brass-dark); font-weight:600;
+  }
+  .recap-bookend-text{font-size:13.5px; line-height:1.5; margin-top:3px; color:var(--ink); font-style:italic;}
+
   @media (max-width:400px){
     .digit{font-size:24px; padding:5px 3px; min-width:20px;}
     .digit-sep{font-size:18px; padding-bottom:14px;}
@@ -245,6 +279,15 @@
     if(p.days > 0) return p.days + 'd ' + pad(p.hours) + 'h ' + pad(p.mins) + 'm';
     if(p.hours > 0) return p.hours + 'h ' + pad(p.mins) + 'm';
     return p.mins + 'm ' + pad(p.secs) + 's';
+  }
+  function fmtElapsedLong(startMs, endMs){
+    const p = elapsedParts(startMs, endMs);
+    const parts = [];
+    if(p.days > 0) parts.push(p.days + ' day' + (p.days===1?'':'s'));
+    if(p.hours > 0) parts.push(p.hours + ' hour' + (p.hours===1?'':'s'));
+    if(p.days === 0 && p.mins > 0) parts.push(p.mins + ' minute' + (p.mins===1?'':'s'));
+    if(parts.length === 0) return 'Under a minute';
+    return parts.join(', ');
   }
   function fmtDate(ms){
     const d = new Date(ms);
@@ -412,6 +455,8 @@
 
     if(!isDone){
       html += '<div class="goal-row"><button class="btn btn-rust" id="b-achieve">I achieved the goal — stop the clock</button></div>';
+    } else {
+      html += '<div class="goal-row"><button class="btn btn-ghost" id="b-recap">View recap</button></div>';
     }
 
     html += '<div class="notes-section"><h3>Notes</h3>';
@@ -441,6 +486,9 @@
 
     const achieveBtn = document.getElementById('b-achieve');
     if(achieveBtn) achieveBtn.onclick = () => showAchieveConfirm(j);
+
+    const recapBtn = document.getElementById('b-recap');
+    if(recapBtn) recapBtn.onclick = () => showRecapModal(j);
 
     document.getElementById('b-add-note').onclick = async () => {
       const ta = document.getElementById('note-input');
@@ -493,9 +541,60 @@
       await saveJourneys();
       overlay.remove();
       render();
+      showRecapModal(j);
     };
   }
 
+  function showRecapModal(j){
+    const notes = notesCache[j.id] || [];
+    const sortedByTime = [...notes].sort((a,b) => a.createdAt - b.createdAt);
+    const milestones = sortedByTime.filter(n => n.milestone);
+    const firstNote = sortedByTime[0];
+    const lastNote = sortedByTime[sortedByTime.length - 1];
+
+    let html = '<div class="modal recap-modal">';
+    html += '<div class="recap-kicker">Journey complete</div>';
+    html += '<h2 class="recap-title">' + escapeHtml(j.name) + '</h2>';
+    html += '<div class="recap-duration">' + fmtElapsedLong(j.startDate, j.endDate) + '</div>';
+    html += '<div class="recap-daterange">' + fmtDate(j.startDate) + ' → ' + fmtDate(j.endDate) + '</div>';
+
+    html += '<div class="recap-stats">';
+    html += '<div class="recap-stat"><div class="recap-stat-num">' + notes.length + '</div><div class="recap-stat-label">Note' + (notes.length===1?'':'s') + '</div></div>';
+    html += '<div class="recap-stat"><div class="recap-stat-num">' + milestones.length + '</div><div class="recap-stat-label">Milestone' + (milestones.length===1?'':'s') + '</div></div>';
+    html += '</div>';
+
+    if(milestones.length > 0){
+      html += '<div class="recap-section-label">Milestones along the way</div>';
+      html += '<div class="recap-milestones">';
+      milestones.forEach(n => {
+        html += '<div class="recap-milestone-item">' +
+          '<div class="recap-milestone-date">' + fmtDateTime(n.createdAt) + '</div>' +
+          '<div class="recap-milestone-text">' + escapeHtml(n.text) + '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    if(firstNote && lastNote && firstNote.id !== lastNote.id){
+      html += '<div class="recap-section-label">Where it started, where it ended</div>';
+      html += '<div class="recap-bookend"><span class="recap-bookend-tag">First note</span>' +
+        '<div class="recap-bookend-text">' + escapeHtml(firstNote.text) + '</div></div>';
+      html += '<div class="recap-bookend"><span class="recap-bookend-tag">Last note</span>' +
+        '<div class="recap-bookend-text">' + escapeHtml(lastNote.text) + '</div></div>';
+    } else if(firstNote){
+      html += '<div class="recap-section-label">Your note</div>';
+      html += '<div class="recap-bookend"><div class="recap-bookend-text">' + escapeHtml(firstNote.text) + '</div></div>';
+    }
+
+    html += '<div class="modal-actions"><button class="btn btn-primary" id="recap-close">Done</button></div>';
+    html += '</div>';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+    document.getElementById('recap-close').onclick = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) overlay.remove(); });
+  }
   function escapeHtml(str){
     const d = document.createElement('div');
     d.textContent = str;
